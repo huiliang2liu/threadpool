@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 
+import com.xh.threadPool.Task.TaskRunnable;
+
 /**
  * threadPool com.xh.threadPool 2018 2018-4-26 ÉÏÎç11:58:32 instructions£º
  * author:liuhuiliang email:825378291@qq.com
@@ -133,7 +135,6 @@ public class TimeThreadPool {
 		if (!isSubmit(command))
 			return;
 		Task task = new Task(command);
-		task.time = num;
 		mTimer.schedule(task, delay, period);
 		synchronized (mRepeatTasks) {
 			mRepeatTasks.add(task);
@@ -180,7 +181,6 @@ public class TimeThreadPool {
 		if (!isSubmit(command))
 			return;
 		Task task = new Task(command);
-		task.time = num;
 		mTimer.schedule(task, time, period);
 		synchronized (mRepeatTasks) {
 			mRepeatTasks.add(task);
@@ -255,12 +255,30 @@ public class TimeThreadPool {
 
 	private class Task extends TimerTask {
 		private Runnable mRunnable;
-		private long time = -1;
-		private long runTime = 1;
 
 		public Task(Runnable runnable) {
 			// TODO Auto-generated constructor stub
 			mRunnable = runnable;
+			if (runnable instanceof TaskRunnable) {
+				TaskRunnable taskRunnable = (TaskRunnable) runnable;
+				taskRunnable.setTask(this);
+			}
+		}
+
+		@Override
+		public boolean cancel() {
+			// TODO Auto-generated method stub
+			synchronized (mTasks) {
+				int index = mTasks.indexOf(this);
+				if (index >= 0)
+					mTasks.remove(index);
+			}
+			synchronized (mRepeatTasks) {
+				int index = mRepeatTasks.indexOf(this);
+				if (index >= 0)
+					mRepeatTasks.remove(index);
+			}
+			return super.cancel();
 		}
 
 		@Override
@@ -272,15 +290,6 @@ public class TimeThreadPool {
 				if (index >= 0)
 					mTasks.remove(index);
 			}
-			runTime++;
-			if (time > 0 && runTime > time)
-				if (cancel()) {
-					synchronized (mRepeatTasks) {
-						int index = mRepeatTasks.indexOf(this);
-						if (index >= 0)
-							mRepeatTasks.remove(index);
-					}
-				}
 		}
 
 		@Override
